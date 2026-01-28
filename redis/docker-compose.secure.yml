@@ -1,13 +1,18 @@
 services:
   redis:
     image: redis:7-alpine
-    container_name: oneqit_redis
+    container_name: oneqit_redis_secure
     ports:
       - "6379:6379"
-    command: redis-server --requirepass your-secure-password-here
+    command: redis-server --requirepass ${REDIS_PASSWORD:-your-secure-password-here}
     networks:
       - oneqit-redis-network
     restart: unless-stopped
+
+  # Override for UI (merged when using -f ui.yml)
+  redis-commander:
+    environment:
+      REDIS_HOSTS: local:redis:6379:0:${REDIS_PASSWORD:-your-secure-password-here}
 
 networks:
   oneqit-redis-network:

@@ -9,5 +9,5 @@ services:
     depends_on:
       - redis
     networks:
-      - redis-network
+      - oneqit-redis-network
     restart: unless-stopped

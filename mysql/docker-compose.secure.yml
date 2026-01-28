@@ -1,14 +1,14 @@
 services:
   mysql:
     image: mysql:8
-    container_name: oneqit_mysql
+    container_name: oneqit_mysql_secure
     ports:
       - "3306:3306"
     environment:
-      MYSQL_ROOT_PASSWORD: your-secure-root-password-here
-      MYSQL_DATABASE: production
-      MYSQL_USER: appuser
-      MYSQL_PASSWORD: your-secure-user-password-here
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:-your-secure-root-password-here}
+      MYSQL_DATABASE: ${MYSQL_DATABASE:-production}
+      MYSQL_USER: ${MYSQL_USER:-appuser}
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD:-your-secure-user-password-here}
     volumes:
       - oneqit-mysql-data:/var/lib/mysql
     networks:

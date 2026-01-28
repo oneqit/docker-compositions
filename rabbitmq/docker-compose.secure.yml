@@ -1,12 +1,12 @@
 services:
   rabbitmq:
     image: rabbitmq:3-alpine
-    container_name: oneqit_rabbitmq
+    container_name: oneqit_rabbitmq_secure
     ports:
       - "5672:5672"
     environment:
-      RABBITMQ_DEFAULT_USER: admin
-      RABBITMQ_DEFAULT_PASS: your-secure-password-here
+      RABBITMQ_DEFAULT_USER: ${RABBITMQ_USER:-admin}
+      RABBITMQ_DEFAULT_PASS: ${RABBITMQ_PASSWORD:-your-secure-password-here}
     networks:
       - oneqit-rabbitmq-network
     restart: unless-stopped

@@ -14,5 +14,5 @@ services:
     depends_on:
       - mongodb
     networks:
-      - mongodb-network
+      - oneqit-mongodb-network
     restart: unless-stopped

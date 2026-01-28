@@ -11,5 +11,5 @@ services:
     depends_on:
       - elasticsearch
     networks:
-      - elasticsearch-network
+      - oneqit-elasticsearch-network
     restart: unless-stopped

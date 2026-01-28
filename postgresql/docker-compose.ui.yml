@@ -11,5 +11,5 @@ services:
     depends_on:
       - postgresql
     networks:
-      - postgresql-network
+      - oneqit-postgresql-network
     restart: unless-stopped
