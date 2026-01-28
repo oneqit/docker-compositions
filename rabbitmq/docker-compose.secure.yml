@@ -1,0 +1,16 @@
+services:
+  rabbitmq:
+    image: rabbitmq:3-alpine
+    container_name: oneqit_rabbitmq
+    ports:
+      - "5672:5672"
+    environment:
+      RABBITMQ_DEFAULT_USER: admin
+      RABBITMQ_DEFAULT_PASS: your-secure-password-here
+    networks:
+      - oneqit-rabbitmq-network
+    restart: unless-stopped
+
+networks:
+  oneqit-rabbitmq-network:
+    driver: bridge

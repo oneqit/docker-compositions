@@ -1,0 +1,50 @@
+services:
+  zookeeper:
+    image: zookeeper:3.9
+    container_name: oneqit_zookeeper
+    ports:
+      - "2181:2181"
+    environment:
+      ZOO_4LW_COMMANDS_WHITELIST: "*"
+      ZOO_AUTH_PROVIDER_SASL: org.apache.zookeeper.server.auth.SASLAuthenticationProvider
+      JVMFLAGS: >-
+        -Djava.security.auth.login.config=/conf/zookeeper_jaas.conf
+    volumes:
+      - ./zookeeper_jaas.conf:/conf/zookeeper_jaas.conf:ro
+    networks:
+      - oneqit-kafka-network
+    restart: unless-stopped
+
+  kafka:
+    image: apache/kafka:3.9.0
+    container_name: oneqit_kafka
+    ports:
+      - "9092:9092"
+    environment:
+      KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
+      # Listeners with SASL
+      KAFKA_LISTENERS: SASL_PLAINTEXT://:9092,INTERNAL://:9094
+      KAFKA_ADVERTISED_LISTENERS: SASL_PLAINTEXT://localhost:9092,INTERNAL://kafka:9094
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: SASL_PLAINTEXT:SASL_PLAINTEXT,INTERNAL:SASL_PLAINTEXT
+      KAFKA_INTER_BROKER_LISTENER_NAME: SASL_PLAINTEXT
+      # SASL settings
+      KAFKA_SASL_MECHANISM_INTER_BROKER_PROTOCOL: PLAIN
+      KAFKA_SASL_ENABLED_MECHANISMS: PLAIN
+      KAFKA_OPTS: >-
+        -Djava.security.auth.login.config=/etc/kafka/kafka_jaas.conf
+      # Cluster settings
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
+      KAFKA_AUTO_CREATE_TOPICS_ENABLE: "true"
+    volumes:
+      - ./kafka_jaas.conf:/etc/kafka/kafka_jaas.conf:ro
+    depends_on:
+      - zookeeper
+    networks:
+      - oneqit-kafka-network
+    restart: unless-stopped
+
+networks:
+  oneqit-kafka-network:
+    driver: bridge

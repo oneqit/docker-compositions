@@ -1,0 +1,13 @@
+services:
+  redis-commander:
+    image: rediscommander/redis-commander:latest
+    container_name: oneqit_redis_commander
+    ports:
+      - "8081:8081"
+    environment:
+      REDIS_HOSTS: ${REDIS_COMMANDER_HOSTS:-local:redis:6379}
+    depends_on:
+      - redis
+    networks:
+      - redis-network
+    restart: unless-stopped

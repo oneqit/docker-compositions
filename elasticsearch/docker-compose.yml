@@ -1,0 +1,23 @@
+services:
+  elasticsearch:
+    image: elasticsearch:8.12.0
+    container_name: oneqit_elasticsearch
+    ports:
+      - "9200:9200"
+      - "9300:9300"
+    environment:
+      - discovery.type=single-node
+      - xpack.security.enabled=false
+      - ES_JAVA_OPTS=-Xms512m -Xmx512m
+    volumes:
+      - oneqit-elasticsearch-data:/usr/share/elasticsearch/data
+    networks:
+      - oneqit-elasticsearch-network
+    restart: unless-stopped
+
+volumes:
+  oneqit-elasticsearch-data:
+
+networks:
+  oneqit-elasticsearch-network:
+    driver: bridge

@@ -1,0 +1,18 @@
+services:
+  mongodb:
+    image: mongo:7
+    container_name: oneqit_mongodb
+    ports:
+      - "27017:27017"
+    volumes:
+      - oneqit-mongodb-data:/data/db
+    networks:
+      - oneqit-mongodb-network
+    restart: unless-stopped
+
+volumes:
+  oneqit-mongodb-data:
+
+networks:
+  oneqit-mongodb-network:
+    driver: bridge

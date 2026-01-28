@@ -1,0 +1,21 @@
+services:
+  mysql:
+    image: mysql:8
+    container_name: oneqit_mysql
+    ports:
+      - "3306:3306"
+    environment:
+      MYSQL_ROOT_PASSWORD: root
+      MYSQL_DATABASE: dev
+    volumes:
+      - oneqit-mysql-data:/var/lib/mysql
+    networks:
+      - oneqit-mysql-network
+    restart: unless-stopped
+
+volumes:
+  oneqit-mysql-data:
+
+networks:
+  oneqit-mysql-network:
+    driver: bridge
