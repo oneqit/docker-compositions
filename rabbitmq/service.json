@@ -1,0 +1,29 @@
+{
+  "name": "RabbitMQ",
+  "category": "message-queue",
+  "container": "rabbitmq",
+  "ui_container": "rabbitmq_ui",
+  "ui_integrated": true,
+  "ports": {
+    "main": 5672,
+    "ui": 15672
+  },
+  "access_info": {
+    "dev": {
+      "main": "localhost:5672",
+      "main_label": "RabbitMQ AMQP"
+    },
+    "secure": {
+      "main": "localhost:5672",
+      "main_label": "RabbitMQ AMQP",
+      "credentials": [
+        "Credentials: admin / your-secure-password-here (default)"
+      ]
+    },
+    "ui": {
+      "url": "http://localhost:15672",
+      "name": "RabbitMQ UI",
+      "credentials": "Credentials: guest / guest"
+    }
+  }
+}

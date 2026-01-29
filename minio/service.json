@@ -1,0 +1,31 @@
+{
+  "name": "MinIO",
+  "category": "object-storage",
+  "container": "minio",
+  "ui_container": "minio_ui",
+  "ui_integrated": true,
+  "ports": {
+    "main": 9000,
+    "ui": 9001
+  },
+  "access_info": {
+    "dev": {
+      "main": "http://localhost:9000",
+      "main_label": "MinIO API",
+      "credentials": [
+        "Credentials: minioadmin / minioadmin"
+      ]
+    },
+    "secure": {
+      "main": "http://localhost:9000",
+      "main_label": "MinIO API",
+      "credentials": [
+        "Credentials: admin / your-secure-password-here (default)"
+      ]
+    },
+    "ui": {
+      "url": "http://localhost:9001",
+      "name": "MinIO Console"
+    }
+  }
+}

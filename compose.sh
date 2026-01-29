@@ -2,6 +2,7 @@
 
 # Docker Compositions - Interactive Start/Stop Script
 # Toggle services: running -> stop, stopped -> start
+# Services are auto-discovered from service.json files
 
 set -e
 
@@ -16,25 +17,108 @@ GRAY='\033[0;90m'
 CYAN='\033[0;36m'
 NC='\033[0m' # No Color
 
-# Service list (index-based array for bash 3.2 compatibility)
-# Order: Relational DB (1-2), Document DB (3), In-Memory (4), Message Queue (5-6), Search (7), Object Storage (8)
-SERVICE_DIRS=("" "mysql" "postgresql" "mongodb" "redis" "rabbitmq" "kafka" "elasticsearch" "minio")
-SERVICE_NAMES=("" "MySQL" "PostgreSQL" "MongoDB" "Redis" "RabbitMQ" "Kafka" "Elasticsearch" "MinIO")
+# Check jq dependency
+check_jq() {
+    if ! command -v jq &> /dev/null; then
+        echo -e "${RED}Error: jq is required but not installed.${NC}"
+        echo -e "Install with: ${GREEN}brew install jq${NC} (macOS)"
+        echo -e "            ${GREEN}apt-get install jq${NC} (Ubuntu/Debian)"
+        exit 1
+    fi
+}
 
-# Container name mapping
-# Main containers: oneqit_{container} (dev) or oneqit_{container}_secure (secure)
-# UI containers: oneqit_{ui_container}
-SERVICE_CONTAINERS=("" "mysql" "postgresql" "mongodb" "redis" "rabbitmq" "kafka" "elasticsearch" "minio")
-SERVICE_UI_CONTAINERS=("" "phpmyadmin" "pgadmin" "mongo_express" "redis_commander" "rabbitmq_ui" "kafka_ui" "kibana" "minio_ui")
+# Get value from service.json using jq
+get_service_meta() {
+    local service_dir=$1
+    local key=$2
+    local json_file="$SCRIPT_DIR/$service_dir/service.json"
+    if [[ -f "$json_file" ]]; then
+        jq -r "$key // empty" "$json_file"
+    fi
+}
 
-# Service status (empty: stopped, dev: dev mode, secure: secure mode)
-SERVICE_MODE=("" "" "" "" "" "" "" "" "")
-# UI status (0: no ui, 1: ui running)
-SERVICE_UI=("" "0" "0" "0" "0" "0" "0" "0" "0")
+# Get value from categories.json
+get_category_meta() {
+    local key=$1
+    jq -r "$key // empty" "$SCRIPT_DIR/categories.json"
+}
 
-# Category definitions for display
-CATEGORY_NAMES=("Relational DB" "Document DB" "In-Memory" "Message Queue" "Search" "Object Storage")
-CATEGORY_RANGES=("1 2" "3" "4" "5 6" "7" "8")
+# Discover all services with service.json
+discover_services() {
+    local services=()
+    for dir in "$SCRIPT_DIR"/*/; do
+        if [[ -f "$dir/service.json" ]]; then
+            services+=("$(basename "$dir")")
+        fi
+    done
+    echo "${services[@]}"
+}
+
+# Build service arrays from service.json files
+# Arrays are indexed by display number (1-based)
+declare -a SERVICE_DIRS
+declare -a SERVICE_NAMES
+declare -a SERVICE_CONTAINERS
+declare -a SERVICE_UI_CONTAINERS
+declare -a SERVICE_UI_INTEGRATED
+declare -a SERVICE_CATEGORIES
+declare -a SERVICE_MODE
+declare -a SERVICE_UI
+declare -a CATEGORY_IDS
+declare -a CATEGORY_NAMES
+declare -a CATEGORY_ORDER
+
+load_categories() {
+    local count
+    count=$(get_category_meta '.categories | length')
+
+    for ((i=0; i<count; i++)); do
+        local id name order
+        id=$(get_category_meta ".categories[$i].id")
+        name=$(get_category_meta ".categories[$i].name")
+        order=$(get_category_meta ".categories[$i].order")
+        CATEGORY_IDS[$order]="$id"
+        CATEGORY_NAMES[$order]="$name"
+    done
+}
+
+load_services() {
+    local services
+    services=($(discover_services))
+
+    # Load categories first
+    load_categories
+
+    # Build indexed arrays in category order (bash 3.2 compatible - no associative arrays)
+    local idx=1
+    local max_order=6
+    for ((order=1; order<=max_order; order++)); do
+        local cat_id="${CATEGORY_IDS[$order]}"
+        if [[ -n "$cat_id" ]]; then
+            # Find all services matching this category
+            for service_dir in "${services[@]}"; do
+                local category
+                category=$(get_service_meta "$service_dir" '.category')
+                if [[ "$category" == "$cat_id" ]]; then
+                    SERVICE_DIRS[$idx]="$service_dir"
+                    SERVICE_NAMES[$idx]=$(get_service_meta "$service_dir" '.name')
+                    SERVICE_CONTAINERS[$idx]=$(get_service_meta "$service_dir" '.container')
+                    SERVICE_UI_CONTAINERS[$idx]=$(get_service_meta "$service_dir" '.ui_container')
+                    SERVICE_UI_INTEGRATED[$idx]=$(get_service_meta "$service_dir" '.ui_integrated')
+                    SERVICE_CATEGORIES[$idx]="$cat_id"
+                    SERVICE_MODE[$idx]=""
+                    SERVICE_UI[$idx]="0"
+                    ((idx++))
+                fi
+            done
+        fi
+    done
+}
+
+# Get max service index
+get_max_service_idx() {
+    echo "${#SERVICE_DIRS[@]}"
+}
 
 print_header() {
     echo -e "\n${BLUE}=== Docker Compositions ===${NC}\n"
@@ -44,11 +128,15 @@ print_header() {
 trap 'echo -e "\n${YELLOW}Exiting...${NC}"; exit 0' INT
 
 detect_running_services() {
-    local running_containers=$(docker ps --format '{{.Names}}' 2>/dev/null)
+    local running_containers
+    running_containers=$(docker ps --format '{{.Names}}' 2>/dev/null)
+    local max_idx
+    max_idx=$(get_max_service_idx)
 
-    for i in 1 2 3 4 5 6 7 8; do
+    for ((i=1; i<=max_idx; i++)); do
         local container="${SERVICE_CONTAINERS[$i]}"
         local ui_container="${SERVICE_UI_CONTAINERS[$i]}"
+        local ui_integrated="${SERVICE_UI_INTEGRATED[$i]}"
         SERVICE_MODE[$i]=""
         SERVICE_UI[$i]="0"
 
@@ -65,14 +153,14 @@ detect_running_services() {
         # Check UI (oneqit_{ui_container})
         if [[ -n "$ui_container" ]] && echo "$running_containers" | grep -q "^oneqit_${ui_container}$"; then
             SERVICE_UI[$i]="1"
-            # RabbitMQ/MinIO: UI container is the main container, so set mode from UI container name
-            if [[ "$container" == "rabbitmq" || "$container" == "minio" ]]; then
+            # UI integrated services: UI container is the main container
+            if [[ "$ui_integrated" == "true" ]]; then
                 SERVICE_MODE[$i]="dev"
             fi
         fi
 
-        # RabbitMQ/MinIO secure+ui: oneqit_{container}_secure_ui
-        if [[ "$container" == "rabbitmq" || "$container" == "minio" ]]; then
+        # UI integrated secure+ui: oneqit_{container}_secure_ui
+        if [[ "$ui_integrated" == "true" ]]; then
             if echo "$running_containers" | grep -q "^oneqit_${container}_secure_ui$"; then
                 SERVICE_MODE[$i]="secure"
                 SERVICE_UI[$i]="1"
@@ -105,16 +193,34 @@ get_status_label() {
 print_services() {
     echo -e "${YELLOW}Select services (e.g. 1 3):${NC}"
 
-    for cat_idx in 0 1 2 3 4 5; do
-        echo -e "  ${BLUE}[${CATEGORY_NAMES[$cat_idx]}]${NC}"
-        for i in ${CATEGORY_RANGES[$cat_idx]}; do
-            local status_label=$(get_status_label $i)
-            if is_running $i; then
-                echo -e "    $i) ${GREEN}●${NC} ${SERVICE_NAMES[$i]}${status_label}"
-            else
-                echo -e "    $i) ${GRAY}○${NC} ${SERVICE_NAMES[$i]}"
-            fi
-        done
+    local current_category=""
+    local max_idx
+    max_idx=$(get_max_service_idx)
+
+    for ((i=1; i<=max_idx; i++)); do
+        local cat_id="${SERVICE_CATEGORIES[$i]}"
+
+        # Print category header when category changes
+        if [[ "$cat_id" != "$current_category" ]]; then
+            # Find category name from CATEGORY_IDS
+            local cat_name=""
+            for ((j=1; j<=6; j++)); do
+                if [[ "${CATEGORY_IDS[$j]}" == "$cat_id" ]]; then
+                    cat_name="${CATEGORY_NAMES[$j]}"
+                    break
+                fi
+            done
+            echo -e "  ${BLUE}[$cat_name]${NC}"
+            current_category="$cat_id"
+        fi
+
+        local status_label
+        status_label=$(get_status_label $i)
+        if is_running $i; then
+            echo -e "    $i) ${GREEN}●${NC} ${SERVICE_NAMES[$i]}${status_label}"
+        else
+            echo -e "    $i) ${GRAY}○${NC} ${SERVICE_NAMES[$i]}"
+        fi
     done
     echo -e "\n${GRAY}(Ctrl+C to exit)${NC}"
 }
@@ -145,94 +251,52 @@ print_access_info() {
     local mode=$2
     local include_ui=$3
 
+    local name
+    name=$(get_service_meta "$service_dir" '.name')
+
     echo -e "${CYAN}Access:${NC}"
 
-    case "$service_dir" in
-        redis)
-            echo -e "  Redis:           ${GREEN}localhost:6379${NC}"
-            if [[ "$mode" == "secure" ]]; then
-                echo -e "  ${YELLOW}Password: your-secure-password-here (default)${NC}"
-            fi
-            if [[ "$include_ui" == "yes" ]]; then
-                echo -e "  Redis Commander: ${GREEN}http://localhost:8081${NC}"
-            fi
-            ;;
-        rabbitmq)
-            echo -e "  RabbitMQ AMQP:   ${GREEN}localhost:5672${NC}"
-            if [[ "$include_ui" == "yes" ]]; then
-                echo -e "  RabbitMQ UI:     ${GREEN}http://localhost:15672${NC}"
-            fi
-            if [[ "$mode" == "secure" ]]; then
-                echo -e "  ${YELLOW}Credentials: admin / your-secure-password-here (default)${NC}"
-            elif [[ "$include_ui" == "yes" ]]; then
-                echo -e "  ${YELLOW}Credentials: guest / guest${NC}"
-            fi
-            ;;
-        kafka)
-            if [[ "$mode" == "secure" ]]; then
-                echo -e "  Kafka SASL:      ${GREEN}localhost:9092${NC}"
-                echo -e "  ${YELLOW}SASL Credentials: admin / your-secure-password-here (default)${NC}"
-            else
-                echo -e "  Kafka:           ${GREEN}localhost:9092${NC}"
-            fi
-            if [[ "$include_ui" == "yes" ]]; then
-                echo -e "  Kafka UI:        ${GREEN}http://localhost:8080${NC}"
-            fi
-            ;;
-        mysql)
-            echo -e "  MySQL:           ${GREEN}localhost:3306${NC}"
-            if [[ "$mode" == "secure" ]]; then
-                echo -e "  ${YELLOW}Root: root / your-secure-root-password-here (default)${NC}"
-                echo -e "  ${YELLOW}User: appuser / your-secure-user-password-here (default)${NC}"
-                echo -e "  ${YELLOW}Database: production (default)${NC}"
-            fi
-            if [[ "$include_ui" == "yes" ]]; then
-                echo -e "  phpMyAdmin:      ${GREEN}http://localhost:8080${NC}"
-            fi
-            ;;
-        mongodb)
-            echo -e "  MongoDB:         ${GREEN}localhost:27017${NC}"
-            if [[ "$mode" == "secure" ]]; then
-                echo -e "  ${YELLOW}Credentials: admin / your-secure-password-here (default)${NC}"
-                echo -e "  ${YELLOW}Database: production (default)${NC}"
-            fi
-            if [[ "$include_ui" == "yes" ]]; then
-                echo -e "  Mongo Express:   ${GREEN}http://localhost:8081${NC}"
-            fi
-            ;;
-        postgresql)
-            echo -e "  PostgreSQL:      ${GREEN}localhost:5432${NC}"
-            if [[ "$mode" == "secure" ]]; then
-                echo -e "  ${YELLOW}Credentials: postgres / your-secure-admin-password-here (default)${NC}"
-                echo -e "  ${YELLOW}Database: production (default)${NC}"
-            fi
-            if [[ "$include_ui" == "yes" ]]; then
-                echo -e "  pgAdmin:         ${GREEN}http://localhost:5050${NC}"
-                echo -e "  ${YELLOW}pgAdmin: admin@local.dev / admin${NC}"
-                echo -e "  ${GRAY}Note: In pgAdmin, use 'oneqit_postgresql' as hostname (not localhost)${NC}"
-            fi
-            ;;
-        elasticsearch)
-            echo -e "  Elasticsearch:   ${GREEN}http://localhost:9200${NC}"
-            if [[ "$mode" == "secure" ]]; then
-                echo -e "  ${YELLOW}Credentials: elastic / your-secure-password-here (default)${NC}"
-            fi
-            if [[ "$include_ui" == "yes" ]]; then
-                echo -e "  Kibana:          ${GREEN}http://localhost:5601${NC}"
-            fi
-            ;;
-        minio)
-            echo -e "  MinIO API:       ${GREEN}http://localhost:9000${NC}"
-            if [[ "$include_ui" == "yes" ]]; then
-                echo -e "  MinIO Console:   ${GREEN}http://localhost:9001${NC}"
-            fi
-            if [[ "$mode" == "secure" ]]; then
-                echo -e "  ${YELLOW}Credentials: admin / your-secure-password-here (default)${NC}"
-            else
-                echo -e "  ${YELLOW}Credentials: minioadmin / minioadmin${NC}"
-            fi
-            ;;
-    esac
+    # Get main access info
+    local main_addr main_label
+    main_addr=$(get_service_meta "$service_dir" ".access_info.$mode.main")
+    main_label=$(get_service_meta "$service_dir" ".access_info.$mode.main_label")
+
+    if [[ -z "$main_label" ]]; then
+        main_label="$name"
+    fi
+
+    # Pad the label for alignment
+    printf "  %-14s ${GREEN}%s${NC}\n" "$main_label:" "$main_addr"
+
+    # Print credentials for secure mode or dev mode (if any)
+    local creds_count
+    creds_count=$(get_service_meta "$service_dir" ".access_info.$mode.credentials | length")
+    if [[ -n "$creds_count" && "$creds_count" != "null" && "$creds_count" -gt 0 ]]; then
+        for ((j=0; j<creds_count; j++)); do
+            local cred
+            cred=$(get_service_meta "$service_dir" ".access_info.$mode.credentials[$j]")
+            echo -e "  ${YELLOW}$cred${NC}"
+        done
+    fi
+
+    # Print UI info
+    if [[ "$include_ui" == "yes" ]]; then
+        local ui_url ui_name ui_creds ui_note
+        ui_url=$(get_service_meta "$service_dir" '.access_info.ui.url')
+        ui_name=$(get_service_meta "$service_dir" '.access_info.ui.name')
+        ui_creds=$(get_service_meta "$service_dir" '.access_info.ui.credentials')
+        ui_note=$(get_service_meta "$service_dir" '.access_info.ui.note')
+
+        if [[ -n "$ui_url" ]]; then
+            printf "  %-14s ${GREEN}%s${NC}\n" "$ui_name:" "$ui_url"
+        fi
+        if [[ -n "$ui_creds" ]]; then
+            echo -e "  ${YELLOW}$ui_creds${NC}"
+        fi
+        if [[ -n "$ui_note" ]]; then
+            echo -e "  ${GRAY}Note: $ui_note${NC}"
+        fi
+    fi
 
     if [[ "$mode" == "secure" ]]; then
         echo -e "  ${GRAY}Customize: cp $service_dir/.env.example $service_dir/.env${NC}"
@@ -255,17 +319,25 @@ check_env_file() {
     fi
 }
 
+# Check if service has Kafka-like modes
+has_modes() {
+    local service_dir=$1
+    local modes
+    modes=$(get_service_meta "$service_dir" '.modes | length')
+    [[ -n "$modes" && "$modes" != "null" && "$modes" -gt 0 ]]
+}
+
 # Get compose file based on mode and UI option
-# All services now use single independent compose files
 get_compose_file() {
     local service_dir=$1
     local mode=$2
     local include_ui=$3
-    local kafka_mode=$4
+    local extra_mode=$4
 
     local prefix=""
-    if [[ "$service_dir" == "kafka" && "$kafka_mode" == "zookeeper" ]]; then
-        prefix="zookeeper."
+    # Check for compose_prefix (like Kafka's zookeeper mode)
+    if [[ -n "$extra_mode" ]]; then
+        prefix=$(get_service_meta "$service_dir" ".compose_prefix.$extra_mode")
     fi
 
     local suffix=""
@@ -293,16 +365,17 @@ start_service() {
     local service_name=$2
     local mode=$3
     local include_ui=$4
-    local kafka_mode=$5
+    local extra_mode=$5
 
     check_env_file "$service_dir" "$mode" "$include_ui"
 
-    local compose_file=$(get_compose_file "$service_dir" "$mode" "$include_ui" "$kafka_mode")
+    local compose_file
+    compose_file=$(get_compose_file "$service_dir" "$mode" "$include_ui" "$extra_mode")
 
     echo -e "${GREEN}Starting $service_name...${NC}"
     echo -e "  Mode: $mode, UI: $include_ui"
-    if [[ "$service_dir" == "kafka" ]]; then
-        echo -e "  Kafka: $kafka_mode"
+    if [[ -n "$extra_mode" ]]; then
+        echo -e "  Extra: $extra_mode"
     fi
     echo -e "  File: $compose_file"
 
@@ -324,16 +397,19 @@ stop_service() {
     local include_ui="no"
     [[ "$ui" == "1" ]] && include_ui="yes"
 
-    # Detect kafka mode from running containers
-    local kafka_mode="kraft"
-    if [[ "$service_dir" == "kafka" ]]; then
-        local running=$(docker ps --format '{{.Names}}' 2>/dev/null)
-        if echo "$running" | grep -q "oneqit_zookeeper"; then
-            kafka_mode="zookeeper"
+    # Detect extra mode (like kafka's zookeeper) from running containers
+    local extra_mode=""
+    if has_modes "$service_dir"; then
+        local running
+        running=$(docker ps --format '{{.Names}}' 2>/dev/null)
+        # Check for zookeeper mode specifically (Kafka)
+        if [[ "$service_dir" == "kafka" ]] && echo "$running" | grep -q "oneqit_zookeeper"; then
+            extra_mode="zookeeper"
         fi
     fi
 
-    local compose_file=$(get_compose_file "$service_dir" "$mode" "$include_ui" "$kafka_mode")
+    local compose_file
+    compose_file=$(get_compose_file "$service_dir" "$mode" "$include_ui" "$extra_mode")
 
     echo -e "${RED}Stopping $service_name...${NC}"
     echo -e "  File: $compose_file"
@@ -346,6 +422,12 @@ stop_service() {
 }
 
 main() {
+    check_jq
+    load_services
+
+    local max_idx
+    max_idx=$(get_max_service_idx)
+
     while true; do
         print_header
 
@@ -358,84 +440,88 @@ main() {
             continue
         fi
 
-    to_start=()
-    to_stop=()
+        to_start=()
+        to_stop=()
 
-    for num in $service_input; do
-        if [[ "$num" =~ ^[1-8]$ ]] && [[ -n "${SERVICE_DIRS[$num]}" ]]; then
-            if is_running $num; then
-                to_stop+=("$num")
+        for num in $service_input; do
+            if [[ "$num" =~ ^[0-9]+$ ]] && [[ "$num" -ge 1 ]] && [[ "$num" -le "$max_idx" ]] && [[ -n "${SERVICE_DIRS[$num]}" ]]; then
+                if is_running $num; then
+                    to_stop+=("$num")
+                else
+                    to_start+=("$num")
+                fi
             else
-                to_start+=("$num")
+                echo -e "${RED}Invalid selection: $num${NC}"
             fi
-        else
-            echo -e "${RED}Invalid selection: $num${NC}"
+        done
+
+        if [[ ${#to_stop[@]} -gt 0 ]]; then
+            echo ""
+            echo -e "${BLUE}=== Stopping ===${NC}"
+            echo ""
+            for num in "${to_stop[@]}"; do
+                stop_service "${SERVICE_DIRS[$num]}" "${SERVICE_NAMES[$num]}" "$num"
+            done
         fi
-    done
 
-    if [[ ${#to_stop[@]} -gt 0 ]]; then
-        echo ""
-        echo -e "${BLUE}=== Stopping ===${NC}"
-        echo ""
-        for num in "${to_stop[@]}"; do
-            stop_service "${SERVICE_DIRS[$num]}" "${SERVICE_NAMES[$num]}" "$num"
-        done
-    fi
+        if [[ ${#to_start[@]} -gt 0 ]]; then
+            print_mode_options
+            read -p "> [1]: " mode_input
+            mode_input=${mode_input:-1}
 
-    if [[ ${#to_start[@]} -gt 0 ]]; then
-        print_mode_options
-        read -p "> [1]: " mode_input
-        mode_input=${mode_input:-1}
+            case $mode_input in
+                1) mode="dev" ;;
+                2) mode="secure" ;;
+                *)
+                    echo -e "${RED}Invalid mode${NC}"
+                    continue
+                    ;;
+            esac
 
-        case $mode_input in
-            1) mode="dev" ;;
-            2) mode="secure" ;;
-            *)
-                echo -e "${RED}Invalid mode${NC}"
-                continue
-                ;;
-        esac
+            print_ui_options
+            read -p "> [1]: " ui_input
+            ui_input=${ui_input:-1}
 
-        print_ui_options
-        read -p "> [1]: " ui_input
-        ui_input=${ui_input:-1}
+            case $ui_input in
+                1) include_ui="no" ;;
+                2) include_ui="yes" ;;
+                *)
+                    echo -e "${RED}Invalid UI option${NC}"
+                    continue
+                    ;;
+            esac
 
-        case $ui_input in
-            1) include_ui="no" ;;
-            2) include_ui="yes" ;;
-            *)
-                echo -e "${RED}Invalid UI option${NC}"
-                continue
-                ;;
-        esac
+            # Check if any service has modes (like Kafka)
+            extra_mode=""
+            for num in "${to_start[@]}"; do
+                if has_modes "${SERVICE_DIRS[$num]}"; then
+                    # Currently only Kafka has modes, show Kafka-specific options
+                    if [[ "${SERVICE_DIRS[$num]}" == "kafka" ]]; then
+                        print_kafka_options
+                        read -p "> [1]: " mode_choice
+                        mode_choice=${mode_choice:-1}
 
-        kafka_mode="kraft"
-        for num in "${to_start[@]}"; do
-            if [[ "${SERVICE_DIRS[$num]}" == "kafka" ]]; then
-                print_kafka_options
-                read -p "> [1]: " kafka_input
-                kafka_input=${kafka_input:-1}
+                        case $mode_choice in
+                            1) extra_mode="" ;;
+                            2) extra_mode="zookeeper" ;;
+                            *)
+                                echo -e "${RED}Invalid mode${NC}"
+                                continue 2
+                                ;;
+                        esac
+                    fi
+                    break
+                fi
+            done
 
-                case $kafka_input in
-                    1) kafka_mode="kraft" ;;
-                    2) kafka_mode="zookeeper" ;;
-                    *)
-                        echo -e "${RED}Invalid Kafka mode${NC}"
-                        continue 2
-                        ;;
-                esac
-                break
-            fi
-        done
+            echo ""
+            echo -e "${BLUE}=== Starting ===${NC}"
+            echo ""
 
-        echo ""
-        echo -e "${BLUE}=== Starting ===${NC}"
-        echo ""
-
-        for num in "${to_start[@]}"; do
-            start_service "${SERVICE_DIRS[$num]}" "${SERVICE_NAMES[$num]}" "$mode" "$include_ui" "$kafka_mode"
-        done
-    fi
+            for num in "${to_start[@]}"; do
+                start_service "${SERVICE_DIRS[$num]}" "${SERVICE_NAMES[$num]}" "$mode" "$include_ui" "$extra_mode"
+            done
+        fi
 
         echo -e "${GREEN}=== Done ===${NC}"
     done

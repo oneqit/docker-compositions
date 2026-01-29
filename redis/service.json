@@ -1,0 +1,25 @@
+{
+  "name": "Redis",
+  "category": "in-memory",
+  "container": "redis",
+  "ui_container": "redis_commander",
+  "ports": {
+    "main": 6379,
+    "ui": 8081
+  },
+  "access_info": {
+    "dev": {
+      "main": "localhost:6379"
+    },
+    "secure": {
+      "main": "localhost:6379",
+      "credentials": [
+        "Password: your-secure-password-here (default)"
+      ]
+    },
+    "ui": {
+      "url": "http://localhost:8081",
+      "name": "Redis Commander"
+    }
+  }
+}

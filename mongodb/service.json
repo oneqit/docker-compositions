@@ -1,0 +1,26 @@
+{
+  "name": "MongoDB",
+  "category": "document-db",
+  "container": "mongodb",
+  "ui_container": "mongo_express",
+  "ports": {
+    "main": 27017,
+    "ui": 8081
+  },
+  "access_info": {
+    "dev": {
+      "main": "localhost:27017"
+    },
+    "secure": {
+      "main": "localhost:27017",
+      "credentials": [
+        "Credentials: admin / your-secure-password-here (default)",
+        "Database: production (default)"
+      ]
+    },
+    "ui": {
+      "url": "http://localhost:8081",
+      "name": "Mongo Express"
+    }
+  }
+}

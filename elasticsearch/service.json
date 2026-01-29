@@ -1,0 +1,25 @@
+{
+  "name": "Elasticsearch",
+  "category": "search",
+  "container": "elasticsearch",
+  "ui_container": "kibana",
+  "ports": {
+    "main": 9200,
+    "ui": 5601
+  },
+  "access_info": {
+    "dev": {
+      "main": "http://localhost:9200"
+    },
+    "secure": {
+      "main": "http://localhost:9200",
+      "credentials": [
+        "Credentials: elastic / your-secure-password-here (default)"
+      ]
+    },
+    "ui": {
+      "url": "http://localhost:5601",
+      "name": "Kibana"
+    }
+  }
+}

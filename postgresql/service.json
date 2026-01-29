@@ -1,0 +1,28 @@
+{
+  "name": "PostgreSQL",
+  "category": "relational-db",
+  "container": "postgresql",
+  "ui_container": "pgadmin",
+  "ports": {
+    "main": 5432,
+    "ui": 5050
+  },
+  "access_info": {
+    "dev": {
+      "main": "localhost:5432"
+    },
+    "secure": {
+      "main": "localhost:5432",
+      "credentials": [
+        "Credentials: postgres / your-secure-admin-password-here (default)",
+        "Database: production (default)"
+      ]
+    },
+    "ui": {
+      "url": "http://localhost:5050",
+      "name": "pgAdmin",
+      "credentials": "pgAdmin: admin@local.dev / admin",
+      "note": "In pgAdmin, use 'oneqit_postgresql' as hostname (not localhost)"
+    }
+  }
+}

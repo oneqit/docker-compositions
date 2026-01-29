@@ -1,0 +1,10 @@
+{
+  "categories": [
+    { "id": "relational-db", "name": "Relational DB", "order": 1 },
+    { "id": "document-db", "name": "Document DB", "order": 2 },
+    { "id": "in-memory", "name": "In-Memory", "order": 3 },
+    { "id": "message-queue", "name": "Message Queue", "order": 4 },
+    { "id": "search", "name": "Search", "order": 5 },
+    { "id": "object-storage", "name": "Object Storage", "order": 6 }
+  ]
+}

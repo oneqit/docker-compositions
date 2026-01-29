@@ -1,0 +1,31 @@
+{
+  "name": "Kafka",
+  "category": "message-queue",
+  "container": "kafka",
+  "ui_container": "kafka_ui",
+  "modes": ["kraft", "zookeeper"],
+  "default_mode": "kraft",
+  "compose_prefix": {
+    "zookeeper": "zookeeper."
+  },
+  "ports": {
+    "main": 9092,
+    "ui": 8080
+  },
+  "access_info": {
+    "dev": {
+      "main": "localhost:9092"
+    },
+    "secure": {
+      "main": "localhost:9092",
+      "main_label": "Kafka SASL",
+      "credentials": [
+        "SASL Credentials: admin / your-secure-password-here (default)"
+      ]
+    },
+    "ui": {
+      "url": "http://localhost:8080",
+      "name": "Kafka UI"
+    }
+  }
+}

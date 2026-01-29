@@ -1,0 +1,27 @@
+{
+  "name": "MySQL",
+  "category": "relational-db",
+  "container": "mysql",
+  "ui_container": "phpmyadmin",
+  "ports": {
+    "main": 3306,
+    "ui": 8080
+  },
+  "access_info": {
+    "dev": {
+      "main": "localhost:3306"
+    },
+    "secure": {
+      "main": "localhost:3306",
+      "credentials": [
+        "Root: root / your-secure-root-password-here (default)",
+        "User: appuser / your-secure-user-password-here (default)",
+        "Database: production (default)"
+      ]
+    },
+    "ui": {
+      "url": "http://localhost:8080",
+      "name": "phpMyAdmin"
+    }
+  }
+}
