@@ -10,5 +10,5 @@ services:
     depends_on:
       - mysql
     networks:
-      - oneqit-mysql-network
+      - network_oneqit
     restart: unless-stopped

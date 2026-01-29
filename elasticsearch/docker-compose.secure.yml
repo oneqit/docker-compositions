@@ -13,7 +13,7 @@ services:
     volumes:
       - oneqit-elasticsearch-data:/usr/share/elasticsearch/data
     networks:
-      - oneqit-elasticsearch-network
+      - network_oneqit
     restart: unless-stopped
 
   # Override for UI (merged when using -f ui.yml)
@@ -26,5 +26,5 @@ volumes:
   oneqit-elasticsearch-data:
 
 networks:
-  oneqit-elasticsearch-network:
+  network_oneqit:
     driver: bridge

@@ -7,12 +7,12 @@ services:
     volumes:
       - oneqit-mongodb-data:/data/db
     networks:
-      - oneqit-mongodb-network
+      - network_oneqit
     restart: unless-stopped
 
 volumes:
   oneqit-mongodb-data:
 
 networks:
-  oneqit-mongodb-network:
+  network_oneqit:
     driver: bridge

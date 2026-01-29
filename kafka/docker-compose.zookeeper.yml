@@ -7,7 +7,7 @@ services:
     environment:
       ZOO_4LW_COMMANDS_WHITELIST: "*"
     networks:
-      - oneqit-kafka-network
+      - network_oneqit
     restart: unless-stopped
 
   kafka:
@@ -28,9 +28,9 @@ services:
     depends_on:
       - zookeeper
     networks:
-      - oneqit-kafka-network
+      - network_oneqit
     restart: unless-stopped
 
 networks:
-  oneqit-kafka-network:
+  network_oneqit:
     driver: bridge

@@ -12,12 +12,12 @@ services:
     volumes:
       - oneqit-elasticsearch-data:/usr/share/elasticsearch/data
     networks:
-      - oneqit-elasticsearch-network
+      - network_oneqit
     restart: unless-stopped
 
 volumes:
   oneqit-elasticsearch-data:
 
 networks:
-  oneqit-elasticsearch-network:
+  network_oneqit:
     driver: bridge

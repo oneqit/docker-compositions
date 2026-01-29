@@ -12,12 +12,12 @@ services:
     volumes:
       - oneqit-mysql-data:/var/lib/mysql
     networks:
-      - oneqit-mysql-network
+      - network_oneqit
     restart: unless-stopped
 
 volumes:
   oneqit-mysql-data:
 
 networks:
-  oneqit-mysql-network:
+  network_oneqit:
     driver: bridge

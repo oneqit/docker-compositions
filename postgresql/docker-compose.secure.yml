@@ -11,12 +11,12 @@ services:
     volumes:
       - oneqit-postgresql-data:/var/lib/postgresql/data
     networks:
-      - oneqit-postgresql-network
+      - network_oneqit
     restart: unless-stopped
 
 volumes:
   oneqit-postgresql-data:
 
 networks:
-  oneqit-postgresql-network:
+  network_oneqit:
     driver: bridge

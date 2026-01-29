@@ -5,9 +5,9 @@ services:
     ports:
       - "6379:6379"
     networks:
-      - oneqit-redis-network
+      - network_oneqit
     restart: unless-stopped
 
 networks:
-  oneqit-redis-network:
+  network_oneqit:
     driver: bridge

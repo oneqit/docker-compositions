@@ -29,7 +29,7 @@ services:
     volumes:
       - ./kafka_jaas.conf:/etc/kafka/kafka_jaas.conf:ro
     networks:
-      - oneqit-kafka-network
+      - network_oneqit
     restart: unless-stopped
 
   # Override for UI (merged when using -f ui.yml)
@@ -40,5 +40,5 @@ services:
       KAFKA_CLUSTERS_0_PROPERTIES_SASL_JAAS_CONFIG: org.apache.kafka.common.security.plain.PlainLoginModule required username="admin" password="your-secure-password-here";
 
 networks:
-  oneqit-kafka-network:
+  network_oneqit:
     driver: bridge

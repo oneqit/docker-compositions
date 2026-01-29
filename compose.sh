@@ -292,11 +292,28 @@ start_service() {
 stop_service() {
     local service_dir=$1
     local service_name=$2
+    local idx=$3
+
+    local mode="${SERVICE_MODE[$idx]}"
+    local ui="${SERVICE_UI[$idx]}"
+    local include_ui="no"
+    [[ "$ui" == "1" ]] && include_ui="yes"
+
+    # Detect kafka mode from running containers
+    local kafka_mode="kraft"
+    if [[ "$service_dir" == "kafka" ]]; then
+        local running=$(docker ps --format '{{.Names}}' 2>/dev/null)
+        if echo "$running" | grep -q "oneqit_zookeeper"; then
+            kafka_mode="zookeeper"
+        fi
+    fi
+
+    local compose_files=$(get_compose_files "$service_dir" "$mode" "$include_ui" "$kafka_mode")
 
     echo -e "${RED}Stopping $service_name...${NC}"
 
     cd "$SCRIPT_DIR/$service_dir"
-    docker-compose down
+    docker-compose $compose_files down
     cd "$SCRIPT_DIR"
 
     echo ""
@@ -334,7 +351,7 @@ main() {
         echo -e "${BLUE}=== Stopping ===${NC}"
         echo ""
         for num in "${to_stop[@]}"; do
-            stop_service "${SERVICE_DIRS[$num]}" "${SERVICE_NAMES[$num]}"
+            stop_service "${SERVICE_DIRS[$num]}" "${SERVICE_NAMES[$num]}" "$num"
         done
     fi
 

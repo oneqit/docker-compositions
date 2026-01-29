@@ -5,9 +5,9 @@ services:
     ports:
       - "5672:5672"
     networks:
-      - oneqit-rabbitmq-network
+      - network_oneqit
     restart: unless-stopped
 
 networks:
-  oneqit-rabbitmq-network:
+  network_oneqit:
     driver: bridge

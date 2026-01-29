@@ -22,9 +22,9 @@ services:
       # Allow auto-create topics
       KAFKA_AUTO_CREATE_TOPICS_ENABLE: "true"
     networks:
-      - oneqit-kafka-network
+      - network_oneqit
     restart: unless-stopped
 
 networks:
-  oneqit-kafka-network:
+  network_oneqit:
     driver: bridge

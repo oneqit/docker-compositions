@@ -13,5 +13,5 @@ services:
     depends_on:
       - kafka
     networks:
-      - oneqit-kafka-network
+      - network_oneqit
     restart: unless-stopped
