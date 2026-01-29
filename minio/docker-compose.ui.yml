@@ -1,0 +1,23 @@
+services:
+  minio:
+    image: minio/minio:latest
+    container_name: oneqit_minio_ui
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: minioadmin
+      MINIO_ROOT_PASSWORD: minioadmin
+    volumes:
+      - minio_data:/data
+    networks:
+      - network_oneqit
+    restart: unless-stopped
+
+volumes:
+  minio_data:
+
+networks:
+  network_oneqit:
+    driver: bridge

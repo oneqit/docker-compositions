@@ -17,28 +17,36 @@ CYAN='\033[0;36m'
 NC='\033[0m' # No Color
 
 # Service list (index-based array for bash 3.2 compatibility)
-SERVICE_DIRS=("" "redis" "rabbitmq" "kafka" "mysql" "mongodb" "postgresql" "elasticsearch")
-SERVICE_NAMES=("" "Redis" "RabbitMQ" "Kafka" "MySQL" "MongoDB" "PostgreSQL" "Elasticsearch")
+# Order: Relational DB (1-2), Document DB (3), In-Memory (4), Message Queue (5-6), Search (7), Object Storage (8)
+SERVICE_DIRS=("" "mysql" "postgresql" "mongodb" "redis" "rabbitmq" "kafka" "elasticsearch" "minio")
+SERVICE_NAMES=("" "MySQL" "PostgreSQL" "MongoDB" "Redis" "RabbitMQ" "Kafka" "Elasticsearch" "MinIO")
 
 # Container name mapping
 # Main containers: oneqit_{container} (dev) or oneqit_{container}_secure (secure)
 # UI containers: oneqit_{ui_container}
-SERVICE_CONTAINERS=("" "redis" "rabbitmq" "kafka" "mysql" "mongodb" "postgresql" "elasticsearch")
-SERVICE_UI_CONTAINERS=("" "redis_commander" "rabbitmq_ui" "kafka_ui" "phpmyadmin" "mongo_express" "pgadmin" "kibana")
+SERVICE_CONTAINERS=("" "mysql" "postgresql" "mongodb" "redis" "rabbitmq" "kafka" "elasticsearch" "minio")
+SERVICE_UI_CONTAINERS=("" "phpmyadmin" "pgadmin" "mongo_express" "redis_commander" "rabbitmq_ui" "kafka_ui" "kibana" "minio_ui")
 
 # Service status (empty: stopped, dev: dev mode, secure: secure mode)
-SERVICE_MODE=("" "" "" "" "" "" "" "")
+SERVICE_MODE=("" "" "" "" "" "" "" "" "")
 # UI status (0: no ui, 1: ui running)
-SERVICE_UI=("" "0" "0" "0" "0" "0" "0" "0")
+SERVICE_UI=("" "0" "0" "0" "0" "0" "0" "0" "0")
+
+# Category definitions for display
+CATEGORY_NAMES=("Relational DB" "Document DB" "In-Memory" "Message Queue" "Search" "Object Storage")
+CATEGORY_RANGES=("1 2" "3" "4" "5 6" "7" "8")
 
 print_header() {
     echo -e "\n${BLUE}=== Docker Compositions ===${NC}\n"
 }
 
+# Handle Ctrl+C gracefully
+trap 'echo -e "\n${YELLOW}Exiting...${NC}"; exit 0' INT
+
 detect_running_services() {
     local running_containers=$(docker ps --format '{{.Names}}' 2>/dev/null)
 
-    for i in 1 2 3 4 5 6 7; do
+    for i in 1 2 3 4 5 6 7 8; do
         local container="${SERVICE_CONTAINERS[$i]}"
         local ui_container="${SERVICE_UI_CONTAINERS[$i]}"
         SERVICE_MODE[$i]=""
@@ -57,16 +65,18 @@ detect_running_services() {
         # Check UI (oneqit_{ui_container})
         if [[ -n "$ui_container" ]] && echo "$running_containers" | grep -q "^oneqit_${ui_container}$"; then
             SERVICE_UI[$i]="1"
-            # RabbitMQ: UI container is the main container, so set mode from UI container name
-            if [[ "$container" == "rabbitmq" ]]; then
+            # RabbitMQ/MinIO: UI container is the main container, so set mode from UI container name
+            if [[ "$container" == "rabbitmq" || "$container" == "minio" ]]; then
                 SERVICE_MODE[$i]="dev"
             fi
         fi
 
-        # RabbitMQ secure+ui: oneqit_rabbitmq_secure_ui
-        if [[ "$container" == "rabbitmq" ]] && echo "$running_containers" | grep -q "^oneqit_${container}_secure_ui$"; then
-            SERVICE_MODE[$i]="secure"
-            SERVICE_UI[$i]="1"
+        # RabbitMQ/MinIO secure+ui: oneqit_{container}_secure_ui
+        if [[ "$container" == "rabbitmq" || "$container" == "minio" ]]; then
+            if echo "$running_containers" | grep -q "^oneqit_${container}_secure_ui$"; then
+                SERVICE_MODE[$i]="secure"
+                SERVICE_UI[$i]="1"
+            fi
         fi
     done
 }
@@ -94,15 +104,19 @@ get_status_label() {
 
 print_services() {
     echo -e "${YELLOW}Select services (e.g. 1 3):${NC}"
-    for i in 1 2 3 4 5 6 7; do
-        local status_label=$(get_status_label $i)
-        if is_running $i; then
-            echo -e "  $i) ${GREEN}●${NC} ${SERVICE_NAMES[$i]}${status_label}"
-        else
-            echo -e "  $i) ${GRAY}○${NC} ${SERVICE_NAMES[$i]}"
-        fi
+
+    for cat_idx in 0 1 2 3 4 5; do
+        echo -e "  ${BLUE}[${CATEGORY_NAMES[$cat_idx]}]${NC}"
+        for i in ${CATEGORY_RANGES[$cat_idx]}; do
+            local status_label=$(get_status_label $i)
+            if is_running $i; then
+                echo -e "    $i) ${GREEN}●${NC} ${SERVICE_NAMES[$i]}${status_label}"
+            else
+                echo -e "    $i) ${GRAY}○${NC} ${SERVICE_NAMES[$i]}"
+            fi
+        done
     done
-    echo ""
+    echo -e "\n${GRAY}(Ctrl+C to exit)${NC}"
 }
 
 print_mode_options() {
@@ -205,6 +219,17 @@ print_access_info() {
             fi
             if [[ "$include_ui" == "yes" ]]; then
                 echo -e "  Kibana:          ${GREEN}http://localhost:5601${NC}"
+            fi
+            ;;
+        minio)
+            echo -e "  MinIO API:       ${GREEN}http://localhost:9000${NC}"
+            if [[ "$include_ui" == "yes" ]]; then
+                echo -e "  MinIO Console:   ${GREEN}http://localhost:9001${NC}"
+            fi
+            if [[ "$mode" == "secure" ]]; then
+                echo -e "  ${YELLOW}Credentials: admin / your-secure-password-here (default)${NC}"
+            else
+                echo -e "  ${YELLOW}Credentials: minioadmin / minioadmin${NC}"
             fi
             ;;
     esac
@@ -321,22 +346,23 @@ stop_service() {
 }
 
 main() {
-    print_header
+    while true; do
+        print_header
 
-    detect_running_services
-    print_services
-    read -p "> " service_input
+        detect_running_services
+        print_services
+        read -p "> " service_input
 
-    if [[ -z "$service_input" ]]; then
-        echo -e "${RED}No service selected${NC}"
-        exit 1
-    fi
+        if [[ -z "$service_input" ]]; then
+            echo -e "${RED}No service selected${NC}"
+            continue
+        fi
 
     to_start=()
     to_stop=()
 
     for num in $service_input; do
-        if [[ "$num" =~ ^[1-7]$ ]] && [[ -n "${SERVICE_DIRS[$num]}" ]]; then
+        if [[ "$num" =~ ^[1-8]$ ]] && [[ -n "${SERVICE_DIRS[$num]}" ]]; then
             if is_running $num; then
                 to_stop+=("$num")
             else
@@ -366,7 +392,7 @@ main() {
             2) mode="secure" ;;
             *)
                 echo -e "${RED}Invalid mode${NC}"
-                exit 1
+                continue
                 ;;
         esac
 
@@ -379,7 +405,7 @@ main() {
             2) include_ui="yes" ;;
             *)
                 echo -e "${RED}Invalid UI option${NC}"
-                exit 1
+                continue
                 ;;
         esac
 
@@ -395,7 +421,7 @@ main() {
                     2) kafka_mode="zookeeper" ;;
                     *)
                         echo -e "${RED}Invalid Kafka mode${NC}"
-                        exit 1
+                        continue 2
                         ;;
                 esac
                 break
@@ -411,7 +437,8 @@ main() {
         done
     fi
 
-    echo -e "${GREEN}=== Done ===${NC}"
+        echo -e "${GREEN}=== Done ===${NC}"
+    done
 }
 
 main "$@"
