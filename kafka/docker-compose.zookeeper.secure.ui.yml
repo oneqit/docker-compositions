@@ -45,6 +45,24 @@ services:
       - network_oneqit
     restart: unless-stopped
 
+  kafka-ui:
+    image: provectuslabs/kafka-ui:latest
+    container_name: oneqit_kafka_ui
+    ports:
+      - "8080:8080"
+    environment:
+      KAFKA_CLUSTERS_0_NAME: local
+      KAFKA_CLUSTERS_0_BOOTSTRAPSERVERS: kafka:9094
+      KAFKA_CLUSTERS_0_ZOOKEEPER: zookeeper:2181
+      KAFKA_CLUSTERS_0_PROPERTIES_SECURITY_PROTOCOL: SASL_PLAINTEXT
+      KAFKA_CLUSTERS_0_PROPERTIES_SASL_MECHANISM: PLAIN
+      KAFKA_CLUSTERS_0_PROPERTIES_SASL_JAAS_CONFIG: org.apache.kafka.common.security.plain.PlainLoginModule required username="admin" password="your-secure-password-here";
+    depends_on:
+      - kafka
+    networks:
+      - network_oneqit
+    restart: unless-stopped
+
 networks:
   network_oneqit:
     driver: bridge

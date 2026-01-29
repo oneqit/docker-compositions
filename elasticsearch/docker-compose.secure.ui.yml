@@ -1,13 +1,14 @@
 services:
   elasticsearch:
     image: elasticsearch:8.12.0
-    container_name: oneqit_elasticsearch
+    container_name: oneqit_elasticsearch_secure
     ports:
       - "9200:9200"
       - "9300:9300"
     environment:
       - discovery.type=single-node
-      - xpack.security.enabled=false
+      - xpack.security.enabled=true
+      - ELASTIC_PASSWORD=${ELASTIC_PASSWORD:-your-secure-password-here}
       - ES_JAVA_OPTS=-Xms512m -Xmx512m
     volumes:
       - oneqit-elasticsearch-data:/usr/share/elasticsearch/data
@@ -22,6 +23,8 @@ services:
       - "5601:5601"
     environment:
       ELASTICSEARCH_HOSTS: http://elasticsearch:9200
+      ELASTICSEARCH_USERNAME: elastic
+      ELASTICSEARCH_PASSWORD: ${ELASTIC_PASSWORD:-your-secure-password-here}
     depends_on:
       - elasticsearch
     networks:

@@ -16,12 +16,6 @@ services:
       - network_oneqit
     restart: unless-stopped
 
-  # Override for UI (merged when using -f ui.yml)
-  kibana:
-    environment:
-      ELASTICSEARCH_USERNAME: elastic
-      ELASTICSEARCH_PASSWORD: ${ELASTIC_PASSWORD:-your-secure-password-here}
-
 volumes:
   oneqit-elasticsearch-data:
 

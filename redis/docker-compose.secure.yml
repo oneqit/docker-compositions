@@ -9,11 +9,6 @@ services:
       - network_oneqit
     restart: unless-stopped
 
-  # Override for UI (merged when using -f ui.yml)
-  redis-commander:
-    environment:
-      REDIS_HOSTS: local:redis:6379:0:${REDIS_PASSWORD:-your-secure-password-here}
-
 networks:
   network_oneqit:
     driver: bridge

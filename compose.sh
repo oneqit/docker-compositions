@@ -21,11 +21,10 @@ SERVICE_DIRS=("" "redis" "rabbitmq" "kafka" "mysql" "mongodb" "postgresql" "elas
 SERVICE_NAMES=("" "Redis" "RabbitMQ" "Kafka" "MySQL" "MongoDB" "PostgreSQL" "Elasticsearch")
 
 # Container name mapping
-# dev mode: oneqit_{container}
-# secure mode: oneqit_{container}_secure
-# ui: oneqit_{ui_container}
+# Main containers: oneqit_{container} (dev) or oneqit_{container}_secure (secure)
+# UI containers: oneqit_{ui_container}
 SERVICE_CONTAINERS=("" "redis" "rabbitmq" "kafka" "mysql" "mongodb" "postgresql" "elasticsearch")
-SERVICE_UI_CONTAINERS=("" "redis_commander" "" "kafka_ui" "phpmyadmin" "mongo_express" "pgadmin" "kibana")
+SERVICE_UI_CONTAINERS=("" "redis_commander" "rabbitmq_ui" "kafka_ui" "phpmyadmin" "mongo_express" "pgadmin" "kibana")
 
 # Service status (empty: stopped, dev: dev mode, secure: secure mode)
 SERVICE_MODE=("" "" "" "" "" "" "" "")
@@ -57,6 +56,16 @@ detect_running_services() {
 
         # Check UI (oneqit_{ui_container})
         if [[ -n "$ui_container" ]] && echo "$running_containers" | grep -q "^oneqit_${ui_container}$"; then
+            SERVICE_UI[$i]="1"
+            # RabbitMQ: UI container is the main container, so set mode from UI container name
+            if [[ "$container" == "rabbitmq" ]]; then
+                SERVICE_MODE[$i]="dev"
+            fi
+        fi
+
+        # RabbitMQ secure+ui: oneqit_rabbitmq_secure_ui
+        if [[ "$container" == "rabbitmq" ]] && echo "$running_containers" | grep -q "^oneqit_${container}_secure_ui$"; then
+            SERVICE_MODE[$i]="secure"
             SERVICE_UI[$i]="1"
         fi
     done
@@ -220,48 +229,37 @@ check_env_file() {
     fi
 }
 
-get_compose_files() {
+# Get compose file based on mode and UI option
+# All services now use single independent compose files
+get_compose_file() {
     local service_dir=$1
     local mode=$2
     local include_ui=$3
     local kafka_mode=$4
 
-    local base_file=""
-    local ui_file=""
-
-    if [[ "$service_dir" == "kafka" ]]; then
-        if [[ "$kafka_mode" == "zookeeper" ]]; then
-            if [[ "$mode" == "secure" ]]; then
-                base_file="docker-compose.zookeeper.secure.yml"
-            else
-                base_file="docker-compose.zookeeper.yml"
-            fi
-            ui_file="docker-compose.zookeeper.ui.yml"
-        else
-            if [[ "$mode" == "secure" ]]; then
-                base_file="docker-compose.secure.yml"
-            else
-                base_file="docker-compose.yml"
-            fi
-            ui_file="docker-compose.ui.yml"
-        fi
-    else
-        if [[ "$mode" == "secure" ]]; then
-            base_file="docker-compose.secure.yml"
-        else
-            base_file="docker-compose.yml"
-        fi
-        ui_file="docker-compose.ui.yml"
+    local prefix=""
+    if [[ "$service_dir" == "kafka" && "$kafka_mode" == "zookeeper" ]]; then
+        prefix="zookeeper."
     fi
 
-    local files=""
-    if [[ "$include_ui" == "yes" ]]; then
-        files="-f $ui_file -f $base_file"
-    else
-        files="-f $base_file"
+    local suffix=""
+    if [[ "$mode" == "secure" && "$include_ui" == "yes" ]]; then
+        suffix="secure.ui"
+    elif [[ "$mode" == "secure" ]]; then
+        suffix="secure"
+    elif [[ "$include_ui" == "yes" ]]; then
+        suffix="ui"
     fi
 
-    echo "$files"
+    if [[ -n "$suffix" ]]; then
+        echo "docker-compose.${prefix}${suffix}.yml"
+    else
+        if [[ -n "$prefix" ]]; then
+            echo "docker-compose.${prefix%%.}.yml"
+        else
+            echo "docker-compose.yml"
+        fi
+    fi
 }
 
 start_service() {
@@ -273,16 +271,17 @@ start_service() {
 
     check_env_file "$service_dir" "$mode" "$include_ui"
 
-    local compose_files=$(get_compose_files "$service_dir" "$mode" "$include_ui" "$kafka_mode")
+    local compose_file=$(get_compose_file "$service_dir" "$mode" "$include_ui" "$kafka_mode")
 
     echo -e "${GREEN}Starting $service_name...${NC}"
     echo -e "  Mode: $mode, UI: $include_ui"
     if [[ "$service_dir" == "kafka" ]]; then
         echo -e "  Kafka: $kafka_mode"
     fi
+    echo -e "  File: $compose_file"
 
     cd "$SCRIPT_DIR/$service_dir"
-    docker-compose $compose_files up -d
+    docker-compose -f "$compose_file" up -d
     cd "$SCRIPT_DIR"
 
     echo ""
@@ -308,12 +307,13 @@ stop_service() {
         fi
     fi
 
-    local compose_files=$(get_compose_files "$service_dir" "$mode" "$include_ui" "$kafka_mode")
+    local compose_file=$(get_compose_file "$service_dir" "$mode" "$include_ui" "$kafka_mode")
 
     echo -e "${RED}Stopping $service_name...${NC}"
+    echo -e "  File: $compose_file"
 
     cd "$SCRIPT_DIR/$service_dir"
-    docker-compose $compose_files down
+    docker-compose -f "$compose_file" down
     cd "$SCRIPT_DIR"
 
     echo ""
