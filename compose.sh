@@ -195,6 +195,7 @@ print_access_info() {
             if [[ "$include_ui" == "yes" ]]; then
                 echo -e "  pgAdmin:         ${GREEN}http://localhost:5050${NC}"
                 echo -e "  ${YELLOW}pgAdmin: admin@local.dev / admin${NC}"
+                echo -e "  ${GRAY}Note: In pgAdmin, use 'oneqit_postgresql' as hostname (not localhost)${NC}"
             fi
             ;;
         elasticsearch)
