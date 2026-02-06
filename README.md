@@ -51,10 +51,10 @@ docker-compositions/
 cd <service>
 
 # Dev 버전
-docker-compose up -d
+docker compose up -d
 
 # Secure 버전
-docker-compose -f docker-compose.secure.yml up -d
+docker compose -f docker-compose.secure.yml up -d
 ```
 
 #### 서비스 + UI 실행
@@ -63,22 +63,22 @@ docker-compose -f docker-compose.secure.yml up -d
 cd <service>
 
 # Dev 버전 + UI
-docker-compose -f docker-compose.yml -f docker-compose.ui.yml up -d
+docker compose -f docker-compose.yml -f docker-compose.ui.yml up -d
 
 # Secure 버전 + UI (.env 설정 필요)
 cp .env.example .env
 # .env 파일을 편집하여 인증 정보 설정
-docker-compose -f docker-compose.secure.yml -f docker-compose.ui.yml up -d
+docker compose -f docker-compose.secure.yml -f docker-compose.ui.yml up -d
 ```
 
 ### 서비스 중지
 
 ```bash
-docker-compose down
+docker compose down
 # 또는 secure 버전의 경우
-docker-compose -f docker-compose.secure.yml down
+docker compose -f docker-compose.secure.yml down
 # 또는 UI 포함 버전의 경우
-docker-compose -f docker-compose.yml -f docker-compose.ui.yml down
+docker compose -f docker-compose.yml -f docker-compose.ui.yml down
 ```
 
 ## 환경변수 (.env) 설정
@@ -92,8 +92,8 @@ cp .env.example .env
 # 2. .env 파일을 편집하여 인증 정보 설정
 vi .env
 
-# 3. docker-compose 실행 (같은 디렉토리의 .env를 자동으로 읽음)
-docker-compose -f docker-compose.secure.yml -f docker-compose.ui.yml up -d
+# 3. docker compose 실행 (같은 디렉토리의 .env를 자동으로 읽음)
+docker compose -f docker-compose.secure.yml -f docker-compose.ui.yml up -d
 ```
 
 ## 서비스 목록

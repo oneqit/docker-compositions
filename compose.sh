@@ -380,7 +380,7 @@ start_service() {
     echo -e "  File: $compose_file"
 
     cd "$SCRIPT_DIR/$service_dir"
-    docker-compose -f "$compose_file" up -d
+    docker compose -f "$compose_file" up -d
     cd "$SCRIPT_DIR"
 
     echo ""
@@ -415,7 +415,7 @@ stop_service() {
     echo -e "  File: $compose_file"
 
     cd "$SCRIPT_DIR/$service_dir"
-    docker-compose -f "$compose_file" down
+    docker compose -f "$compose_file" down
     cd "$SCRIPT_DIR"
 
     echo ""

@@ -6,18 +6,18 @@
 
 ```bash
 # Dev (서비스만)
-docker-compose up -d
+docker compose up -d
 
 # Dev + UI
-docker-compose -f docker-compose.yml -f docker-compose.ui.yml up -d
+docker compose -f docker-compose.yml -f docker-compose.ui.yml up -d
 
 # Secure (서비스만)
-docker-compose -f docker-compose.secure.yml up -d
+docker compose -f docker-compose.secure.yml up -d
 
 # Secure + UI (.env 설정 필요)
 cp .env.example .env
 # .env 파일을 편집하여 PGADMIN_PASSWORD 설정
-docker-compose -f docker-compose.secure.yml -f docker-compose.ui.yml up -d
+docker compose -f docker-compose.secure.yml -f docker-compose.ui.yml up -d
 ```
 
 ## 접속 정보

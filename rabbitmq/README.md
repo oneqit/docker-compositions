@@ -6,16 +6,16 @@ AMQP 메시지 브로커 설정입니다.
 
 ```bash
 # Dev (서비스만)
-docker-compose up -d
+docker compose up -d
 
 # Dev + UI
-docker-compose -f docker-compose.yml -f docker-compose.ui.yml up -d
+docker compose -f docker-compose.yml -f docker-compose.ui.yml up -d
 
 # Secure (서비스만)
-docker-compose -f docker-compose.secure.yml up -d
+docker compose -f docker-compose.secure.yml up -d
 
 # Secure + UI
-docker-compose -f docker-compose.secure.yml -f docker-compose.ui.yml up -d
+docker compose -f docker-compose.secure.yml -f docker-compose.ui.yml up -d
 ```
 
 ## 접속 정보
