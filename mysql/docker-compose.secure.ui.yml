@@ -1,6 +1,6 @@
 services:
   mysql:
-    image: mysql:8
+    image: mysql:8.0
     container_name: oneqit_mysql_secure
     ports:
       - "3306:3306"

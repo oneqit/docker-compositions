@@ -246,6 +246,13 @@ print_kafka_options() {
     echo ""
 }
 
+print_mysql_options() {
+    echo -e "${YELLOW}MySQL version:${NC}"
+    echo "  1) 8.0 (default)"
+    echo "  2) 8.4"
+    echo ""
+}
+
 print_access_info() {
     local service_dir=$1
     local mode=$2
@@ -335,9 +342,9 @@ get_compose_file() {
     local extra_mode=$4
 
     local prefix=""
-    # Check for compose_prefix (like Kafka's zookeeper mode)
+    # Check for compose_prefix (like Kafka's zookeeper mode, MySQL's 8.4)
     if [[ -n "$extra_mode" ]]; then
-        prefix=$(get_service_meta "$service_dir" ".compose_prefix.$extra_mode")
+        prefix=$(get_service_meta "$service_dir" ".compose_prefix[\"$extra_mode\"]")
     fi
 
     local suffix=""
@@ -491,11 +498,11 @@ main() {
                     ;;
             esac
 
-            # Check if any service has modes (like Kafka)
+            # Check if any service has modes (like Kafka, MySQL)
             extra_mode=""
             for num in "${to_start[@]}"; do
                 if has_modes "${SERVICE_DIRS[$num]}"; then
-                    # Currently only Kafka has modes, show Kafka-specific options
+                    # Kafka modes
                     if [[ "${SERVICE_DIRS[$num]}" == "kafka" ]]; then
                         print_kafka_options
                         read -p "> [1]: " mode_choice
@@ -506,6 +513,21 @@ main() {
                             2) extra_mode="zookeeper" ;;
                             *)
                                 echo -e "${RED}Invalid mode${NC}"
+                                continue 2
+                                ;;
+                        esac
+                    fi
+                    # MySQL version selection
+                    if [[ "${SERVICE_DIRS[$num]}" == "mysql" ]]; then
+                        print_mysql_options
+                        read -p "> [1]: " version_choice
+                        version_choice=${version_choice:-1}
+
+                        case $version_choice in
+                            1) extra_mode="" ;;
+                            2) extra_mode="8.4" ;;
+                            *)
+                                echo -e "${RED}Invalid version${NC}"
                                 continue 2
                                 ;;
                         esac

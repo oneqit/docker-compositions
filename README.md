@@ -42,6 +42,7 @@ docker-compositions/
 2. 모드 선택 (dev / secure)
 3. UI 포함 여부
 4. Kafka의 경우 KRaft / Zookeeper 선택
+5. MySQL의 경우 8.0 / 8.4 버전 선택
 
 ### 수동 실행
 

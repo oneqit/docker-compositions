@@ -1,6 +1,6 @@
 services:
   mysql:
-    image: mysql:8.0
+    image: mysql:8.4
     container_name: oneqit_mysql
     ports:
       - "3306:3306"
@@ -9,6 +9,20 @@ services:
       MYSQL_DATABASE: dev
     volumes:
       - oneqit-mysql-data:/var/lib/mysql
+    networks:
+      - network_oneqit
+    restart: unless-stopped
+
+  phpmyadmin:
+    image: phpmyadmin:latest
+    container_name: oneqit_phpmyadmin
+    ports:
+      - "8080:80"
+    environment:
+      PMA_HOST: mysql
+      PMA_PORT: 3306
+    depends_on:
+      - mysql
     networks:
       - network_oneqit
     restart: unless-stopped

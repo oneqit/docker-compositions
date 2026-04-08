@@ -3,6 +3,11 @@
   "category": "relational-db",
   "container": "mysql",
   "ui_container": "phpmyadmin",
+  "modes": ["8.0", "8.4"],
+  "default_mode": "8.0",
+  "compose_prefix": {
+    "8.4": "8.4."
+  },
   "ports": {
     "main": 3306,
     "ui": 8080
